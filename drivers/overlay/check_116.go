@@ -5,6 +5,7 @@ package overlay
 import (
 	"errors"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -26,8 +27,16 @@ func mountProgramIndicatorWalker(home string, detected *bool) fs.WalkDirFunc {
 			return fs.SkipDir
 		}
 		if err != nil {
-			if path != home && d != nil && d.IsDir() && errors.Is(err, syscall.ENOTDIR) {
-				return nil
+			if path != home && d != nil && d.IsDir() {
+				if errors.Is(err, syscall.ENOTDIR) {
+					return nil
+				}
+				if errors.Is(err, syscall.ENXIO) {
+					info, statErr := os.Lstat(path)
+					if errors.Is(statErr, fs.ErrNotExist) || (statErr == nil && !info.IsDir()) {
+						return nil
+					}
+				}
 			}
 			return err
 		}

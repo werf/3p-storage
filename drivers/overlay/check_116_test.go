@@ -30,6 +30,12 @@ func TestMountProgramIndicatorWalkerStaleDirectory(t *testing.T) {
 	walk := mountProgramIndicatorWalker(home, &detected)
 	require.NoError(t, walk(dir, entry, readErr))
 	require.False(t, detected)
+	deviceErr := &os.PathError{Op: "open", Path: dir, Err: syscall.ENXIO}
+	require.NoError(t, walk(dir, entry, deviceErr))
+	require.False(t, detected)
+	require.NoError(t, os.Remove(dir))
+	require.NoError(t, walk(dir, entry, deviceErr))
+	require.False(t, detected)
 
 	whiteout := filepath.Join(home, ".wh.deleted")
 	require.NoError(t, os.WriteFile(whiteout, nil, 0o600))
@@ -60,6 +66,8 @@ func TestMountProgramIndicatorWalkerErrors(t *testing.T) {
 		{"root", home, directory, syscall.ENOTDIR},
 		{"missing entry", dir, nil, syscall.ENOTDIR},
 		{"file", file, fs.FileInfoToDirEntry(info), syscall.ENOTDIR},
+		{"device error on directory", dir, directory, syscall.ENXIO},
+		{"device error on root", home, directory, syscall.ENXIO},
 		{"permission", dir, directory, syscall.EACCES},
 		{"IO", dir, directory, syscall.EIO},
 	} {
